@@ -393,6 +393,11 @@
               <FileType>1</FileType>
               <FilePath>.\drivers\radio\Si4455\si4455_api_lib.c</FilePath>
             </File>
+            <File>
+              <FileName>radio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\application\radio.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
