@@ -151,34 +151,18 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>66</LineNumber>
+          <LineNumber>233</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>-16774533</Address>
+          <Address>-16774042</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
           <SizeOfObject>0</SizeOfObject>
           <BreakByAccess>0</BreakByAccess>
           <BreakIfRCount>1</BreakIfRCount>
-          <Filename>application\RADIO.C</Filename>
+          <Filename>MAIN.C</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\Transducer\RADIO\66</Expression>
-        </Bp>
-        <Bp>
-          <Number>1</Number>
-          <Type>0</Type>
-          <LineNumber>114</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>-16775602</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>drivers\radio\Si4455\SI4455_API_LIB.C</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\Transducer\SI4455_API_LIB\114</Expression>
+          <Expression>\\Transducer\MAIN\233</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
@@ -186,6 +170,11 @@
           <count>0</count>
           <WinNumber>1</WinNumber>
           <ItemText>radioCmd</ItemText>
+        </Ww>
+        <Ww>
+          <count>1</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>pEzConfigArray</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>

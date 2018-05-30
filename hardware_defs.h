@@ -6,5 +6,5 @@
 
 //#define LED1 P1_B0
 //#define LED2 P1_B1
-//#define LED3 P1_B5
+#define LED3 P1_B5
 #define LED4 P1_B6

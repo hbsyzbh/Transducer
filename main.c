@@ -2,7 +2,7 @@
 #include "radio_config_Si4355.h"
 #include "bsp.h"
 
-
+unsigned char lightOn = 0;
 void LM4991(bool on)
 {
 	if (on){
@@ -88,10 +88,21 @@ void timer3() interrupt TIMER3_IRQn
 	static unsigned short count = 0;
 	unsigned short division = count++ % 200; 
 	TMR3CN0 = TMR3CN0_TR3__RUN | TMR3CN0_T3SPLIT__16_BIT_RELOAD;
-	if (division < 5) {
-		P1_B3 = 0;
-	} else {
-		P1_B3 = 1;
+	
+
+		if (division < 5) {
+			if(lightOn)
+			{
+				P1_B3 = 0;
+			}
+		} else {
+			P1_B3 = 1;
+		}
+
+	
+	if(division == 0) {
+		if (lightOn) 
+			lightOn--;
 	}
 }
 
@@ -201,7 +212,7 @@ void SetSoundLevel(unsigned char level)
 void Play()
 {
 	unsigned char i;
-	code unsigned char cmd[] = {0x7E, 0x03, 0xAC, 0xAF, 0xEF };
+	code unsigned char cmd[] = {0x7E, 0x03, 0xAA, 0xAD, 0xEF };
 	
 	SCON0_TI = 0;
 	for(i = 0; i < sizeof(cmd); i++)
@@ -221,19 +232,24 @@ typedef struct
 
 int main()
 {
+	//while(1);
+	lightOn = 1;
+	
 	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
 	SetSoundLevel(31);
+	LM4991(1);
+	Play();
 	
 	vRadio_Init();
 
- 	Play();
+ 	
 //	power4355up();
 //	get_stats();
 	for(;;)
 	{
-		vRadio_StartRX(0u);
+		Radio_StartRX(0u);
 		si4455_fifo_info(0x02);
 		//PCON0 |= 0x01; // set IDLE bit
 		//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
@@ -246,6 +262,7 @@ int main()
 		    if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
 		    {	/* Packet RX */
 				si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
+					lightOn = 3;
 				break;
 		    }
 		}

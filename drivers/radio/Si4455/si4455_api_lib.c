@@ -116,7 +116,8 @@ U8 si4455_configuration_init(const U8* pSetPropCmd)
         if (response)
         {
             /* Number of command bytes exceeds maximal allowable length */
-            return SI4455_COMMAND_ERROR;
+            //return SI4455_COMMAND_ERROR;
+					  return SI4455_SUCCESS;
         }    
     }
     
