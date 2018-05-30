@@ -102,7 +102,7 @@ EZCONFIG_ARRAY_DATA_RADIO_BOOT_OPTIONS_DEFAULT;
   si4455_power_up(pEzConfigArray->Radio_BOOT_OPTIONS,   //0x01
                   pEzConfigArray->Radio_XTAL_OPTIONS,   //0x00
                   pEzConfigArray->Radio_XO_FREQ);       //30000000L
-
+	for (; wDelay < pEzConfigArray->Radio_Delay_Cnt_After_Reset; wDelay++);
   radio_comm_PollCTS();// Waits for CTS to be high
 }
 
