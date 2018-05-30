@@ -16,7 +16,7 @@ void BoardInit()
 {
 		PCA0MD = PCA0MD_WDTE__DISABLED | PCA0MD_CPS__SYSCLK;
 
-#if 1	
+#if 0	
 	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__LPOSC;  //20M  SYS_CLK
 #else
 	HFO0CN = 0x8F;
@@ -27,9 +27,11 @@ void BoardInit()
 	//CKCON0 = CKCON0_T1M__SYSCLK;	//TIMER1 ?? SYS_CLK
 	CKCON0 = CKCON0_T1M__PRESCALE | CKCON0_SCA__SYSCLK_DIV_12 | CKCON0_T3ML__SYSCLK | CKCON0_T3MH__SYSCLK;
 	TMOD = TMOD_T1M__MODE2;
-	//TL1 = TH1 = 150;
+	TL1 = TH1 = 150;
 	//TL1 = TH1 = 169;
-	TL1 = TH1 = 126;
+	
+	
+	//TL1 = TH1 = 126;
 	//TL1 = TH1 = 97;
 	SCON0 = 0x50;
 	
@@ -203,7 +205,7 @@ void SetSoundLevel(unsigned char level)
 	SCON0_TI = 0;
 	for(i = 0; i < sizeof(cmd); i++)
 	{
-		SBUF0 = cmd[i++];
+		SBUF0 = cmd[i];
 		while( ! SCON0_TI);
 		SCON0_TI = 0;
 	}
@@ -217,9 +219,34 @@ void Play()
 	SCON0_TI = 0;
 	for(i = 0; i < sizeof(cmd); i++)
 	{
-		SBUF0 = cmd[i++];
+		SBUF0 = cmd[i];
 		while( ! SCON0_TI);
 		SCON0_TI = 0;
+	}
+}
+
+#define uart0RxBuffSize (32)
+unsigned short uart0RxIndex = 0;
+xdata unsigned char  uart0RxBuff[uart0RxBuffSize];
+
+void uart0() interrupt UART0_IRQn
+{
+	if (SCON0_TI) 
+	{
+		/*
+		if (uart0TxIndex < uart0TxLen) {
+				SBUF0 = uart0TxBuff[uart0TxIndex++];
+		}
+		
+		SCON0_TI = 0;
+		*/
+	}		
+
+	if (SCON0_RI) 
+	{
+		uart0RxBuff[((uart0RxIndex++) % uart0RxBuffSize)] = SBUF0;
+		SCON0_RI = 0;
+
 	}
 }
 
@@ -238,7 +265,7 @@ int main()
 	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
-	SetSoundLevel(31);
+	SetSoundLevel(15);
 	LM4991(1);
 	Play();
 	
@@ -263,6 +290,7 @@ int main()
 		    {	/* Packet RX */
 				si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
 					lightOn = 3;
+						Play();
 				break;
 		    }
 		}
