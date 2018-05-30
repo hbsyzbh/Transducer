@@ -1,5 +1,6 @@
 #include "si_efm8sb2_register_enums.h"
 #include "radio_config_Si4355.h"
+#include "..\bsp.h"
 
 void LM4991(bool on)
 {
@@ -136,6 +137,30 @@ void power4355up()
 	P0_B3 = 1;
 }
 
+void SetSoundLevel(unsigned char level)
+{
+	unsigned char i;
+	unsigned char sum;
+
+	unsigned char cmd[6] = {0x7E, 0x04, 0xAE, 31, 0xD1, 0xEF };
+
+	if (level > 31) {
+		level = 31;
+	}
+
+	sum = 0x04 + 0xAE + level;
+	cmd[3] = level;
+	cmd[4] = sum;
+		
+	SCON0_TI = 0;
+	for(i = 0; i < sizeof(cmd); i++)
+	{
+		SBUF0 = cmd[i++];
+		while( ! SCON0_TI);
+		SCON0_TI = 0;
+	}
+}
+
 void Play()
 {
 	unsigned char i;
@@ -150,20 +175,45 @@ void Play()
 	}
 }
 
+typedef struct
+{
+  U32         ChipID;
+  U8          Flags;          /* 4 bit - Buttons */
+  U16         RollingCounter;
+} tRadioPacket;
+
 int main()
 {
 	P0_B7 = 1;
 	selectTimer3Freq();
 	BoardInit();
-  Play();
+	SetSoundLevel(31);
+	
+	vRadio_Init();
+
+ 	Play();
 	P1_B3 = 1;
 	P0_B7 = 0;
-	power4355up();
-	get_stats();
+//	power4355up();
+//	get_stats();
 	for(;;)
 	{
-		PCON0 |= 0x01; // set IDLE bit
-		PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+		vRadio_StartRX(0u);
+		si4455_fifo_info(0x02);
+		//PCON0 |= 0x01; // set IDLE bit
+		//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+
+		for(;;)
+		{
+			tRadioPacket RadioPacket;
+			si4455_get_int_status(0u, 0u, 0u);
+			 /* check the reason for the IT */
+		    if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
+		    {	/* Packet RX */
+				si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
+				break;
+		    }
+		}
 	}
 		
 }
