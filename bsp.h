@@ -22,7 +22,7 @@
  * Known issues: Some of the example projects 
  * might not build with some extended drivers 
  * due to data memory overflow */
-#undef  RADIO_DRIVER_EXTENDED_SUPPORT
+//#undef  RADIO_DRIVER_EXTENDED_SUPPORT
 #undef  RADIO_DRIVER_FULL_SUPPORT
 #undef  SPI_DRIVER_EXTENDED_SUPPORT
 #undef  HMI_DRIVER_EXTENDED_SUPPORT
@@ -39,11 +39,6 @@
 
 #include "application\application_defs.h"
 
-#include "drivers\cdd_common.h"
-#include "drivers\spi.h"
-#include "drivers\control_IO.h"
-#include "drivers\smbus.h"
-#include "drivers\uart.h"
 
 #if ((defined SILABS_PLATFORM_LCDBB) || (defined SILABS_MCU_DC_EMIF_F930) || (defined SILABS_PLATFORM_WMB))
 /* LCD driver includes */
@@ -65,10 +60,14 @@
 //#include "drivers\radio\Si446x\si446x_patch.h"
 #endif
 
-#ifdef SILABS_RADIO_SI4455
+//#ifdef SILABS_RADIO_SI4455
+#if 1
 #include "drivers\radio\Si4455\si4455_api_lib.h"
 #include "drivers\radio\Si4455\si4455_defs.h"
 #include "drivers\radio\Si4455\si4455_nirq.h"
 #endif
 
+U8 SpiReadWrite(U8 byte);
+void SpiWriteData(U8 byteCount, U8 *pData);
+void SpiReadData(U8 byteCount, U8 *pData);
 #endif //BSP_H

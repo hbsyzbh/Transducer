@@ -1,6 +1,7 @@
 #include "si_efm8sb2_register_enums.h"
 #include "radio_config_Si4355.h"
-#include "..\bsp.h"
+#include "bsp.h"
+
 
 void LM4991(bool on)
 {
@@ -94,6 +95,42 @@ void timer3() interrupt TIMER3_IRQn
 	}
 }
 
+
+U8 SpiReadWrite(U8 byte)
+{
+	U8 ret;
+	SPI0DAT = byte;
+	while( ! SPI0CN0_SPIF);
+		
+	ret = SPI0DAT;
+	SPI0CN0_SPIF = 0;
+	return ret;
+}
+
+void SpiWriteData(U8 byteCount, U8 *pData)
+{
+	U8 i = 0;
+	for(i = 0; i<byteCount; i++)
+	{
+			SPI0DAT = pData[i];
+			while( ! SPI0CN0_SPIF);
+			SPI0CN0_SPIF = 0;
+	}
+}
+
+void SpiReadData(U8 byteCount, U8 *pData)
+{	
+	U8 i = 0;
+	for(i = 0; i<byteCount; i++)
+	{
+			SPI0DAT = 0xFF;
+			while( ! SPI0CN0_SPIF);
+			pData[i] = SPI0DAT;
+			SPI0CN0_SPIF = 0;
+	}
+}
+
+
 unsigned char Manufacturer[6];
 void get_stats()
 {
@@ -184,7 +221,7 @@ typedef struct
 
 int main()
 {
-	P0_B7 = 1;
+	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
 	SetSoundLevel(31);
@@ -192,8 +229,6 @@ int main()
 	vRadio_Init();
 
  	Play();
-	P1_B3 = 1;
-	P0_B7 = 0;
 //	power4355up();
 //	get_stats();
 	for(;;)

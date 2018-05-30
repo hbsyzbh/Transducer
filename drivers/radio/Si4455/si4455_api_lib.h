@@ -50,7 +50,6 @@ void si4455_change_state(U8 NEXT_STATE1);
 #ifdef RADIO_DRIVER_EXTENDED_SUPPORT
   /* Extended driver support functions */
   void si4455_nop(void);
-
   void si4455_fifo_info(U8 FIFO);
   void si4455_part_info(void);
 

@@ -309,7 +309,7 @@
             <InterruptVectorAddress>0</InterruptVectorAddress>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define></Define>
+              <Define>SILABS_RADIO_SI4455 RADIO_DRIVER_EXTENDED_SUPPORT</Define>
               <Undefine></Undefine>
               <IncludePath>C:\Keil_v5\C51\INC\SiLABS\shared\si8051Base</IncludePath>
             </VariousControls>
@@ -372,6 +372,26 @@
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\main.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>driver</GroupName>
+          <Files>
+            <File>
+              <FileName>radio_comm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\drivers\radio\radio_comm.c</FilePath>
+            </File>
+            <File>
+              <FileName>radio_hal.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\drivers\radio\radio_hal.c</FilePath>
+            </File>
+            <File>
+              <FileName>si4455_api_lib.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\drivers\radio\Si4455\si4455_api_lib.c</FilePath>
             </File>
           </Files>
         </Group>
