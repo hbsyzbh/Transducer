@@ -5,18 +5,21 @@
 unsigned char lightOn = 0;
 void LM4991(bool on)
 {
+	unsigned long delay = 3000000;
 	if (on){
 		P1_B4 = 1;
+		while(delay--);
 	}else{
 		P1_B4 = 0;
 	}
 }
 
+#define X20M
 void BoardInit()
 {
 		PCA0MD = PCA0MD_WDTE__DISABLED | PCA0MD_CPS__SYSCLK;
 
-#if 0	
+#ifdef X20M	
 	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__LPOSC;  //20M  SYS_CLK
 #else
 	HFO0CN = 0x8F;
@@ -27,9 +30,12 @@ void BoardInit()
 	//CKCON0 = CKCON0_T1M__SYSCLK;	//TIMER1 ?? SYS_CLK
 	CKCON0 = CKCON0_T1M__PRESCALE | CKCON0_SCA__SYSCLK_DIV_12 | CKCON0_T3ML__SYSCLK | CKCON0_T3MH__SYSCLK;
 	TMOD = TMOD_T1M__MODE2;
-	TL1 = TH1 = 150;
-	//TL1 = TH1 = 169;
 	
+#ifdef X20M	
+	TL1 = TH1 = 169;
+#else
+	TL1 = TH1 = 150;
+#endif	
 	
 	//TL1 = TH1 = 126;
 	//TL1 = TH1 = 97;
@@ -55,7 +61,7 @@ void BoardInit()
 						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__PUSH_PULL | P1MDOUT_B5__PUSH_PULL;
 
 	P1SKIP =  P1SKIP_B0__SKIPPED 		 | P1SKIP_B1__SKIPPED 
-					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED;
+					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED | P1SKIP_B4__SKIPPED;
 	
 	//IE = IE_EA__ENABLED | IE_ES0__ENABLED;
 	IE = IE_EA__ENABLED;
@@ -215,13 +221,62 @@ void Play()
 {
 	unsigned char i;
 	code unsigned char cmd[] = {0x7E, 0x03, 0xAA, 0xAD, 0xEF };
-	
+	LM4991(1);
+	SetSoundLevel(15);
 	SCON0_TI = 0;
 	for(i = 0; i < sizeof(cmd); i++)
 	{
 		SBUF0 = cmd[i];
 		while( ! SCON0_TI);
 		SCON0_TI = 0;
+	}
+}
+
+void delay()
+{
+	unsigned long delay = 500000;
+	while(delay--);
+}
+
+void PlayEnd()
+{
+	unsigned char i;
+	code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
+	unsigned char ret[10];
+
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+			
+			i = 0;
+			while(SCON0_RI == 0);
+			ret[0] = SBUF0;
+			SCON0_RI = 0;
+			
+			if (ret[0] == 0xC2) {
+				while(SCON0_RI == 0);
+				ret[1] = SBUF0;
+				SCON0_RI = 0;
+				if(ret[1] == 0x02) {
+					LM4991(0);
+					break;
+				}
+			}
+		//
+		PCON0 |= 0x01; // set IDLE bit
+		PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+		delay();
 	}
 }
 
@@ -257,17 +312,70 @@ typedef struct
   U16         RollingCounter;
 } tRadioPacket;
 
+void setRTC(unsigned char Addr, unsigned char value)
+{
+	if (RTC0KEY != RTC0KEY_RTC0ST__UNLOCKED)
+	{
+		RTC0KEY = RTC0KEY_RTC0ST__KEY1;
+		RTC0KEY = RTC0KEY_RTC0ST__KEY2;
+	}
+	
+	RTC0ADR = Addr;
+	RTC0DAT = value;
+}
+
+unsigned char getRTC(unsigned char Addr)
+{
+	if (RTC0KEY != RTC0KEY_RTC0ST__UNLOCKED)
+	{
+		RTC0KEY = RTC0KEY_RTC0ST__KEY1;
+		RTC0KEY = RTC0KEY_RTC0ST__KEY2;
+	}
+	
+	RTC0ADR = Addr;
+	return RTC0DAT;
+}
+
 int main()
 {
-	//while(1);
+	unsigned char Key[3];
+	unsigned char count = 0;
+
 	lightOn = 1;
-	
+
 	P1_B3 = 1;
+	
 	selectTimer3Freq();
 	BoardInit();
-	SetSoundLevel(15);
-	LM4991(1);
-	Play();
+	
+	
+	//LM4991(1);
+	//SetSoundLevel(16);
+
+/*
+	P0_B7 = 1;	
+	setRTC(RTC0CN0, 0x80);
+	CLKSEL = 0x33;
+	while(CLKSEL != 0xB4);
+	for( ; ;)
+	{
+#if 0	
+		PCON0 |= 0x01; // set IDLE bit
+		PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+#else
+		PMU0CF = 0x80;
+		{
+		#pragma asm
+			NOP;
+			NOP;
+			NOP;
+			NOP;
+		#pragma endasm
+		}
+#endif
+	}
+*/
+	//Play();
 	
 	vRadio_Init();
 
@@ -288,11 +396,23 @@ int main()
 			 /* check the reason for the IT */
 		    if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
 		    {	/* Packet RX */
-				si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
+					si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
 					lightOn = 3;
-						Play();
-				break;
+					Key[(count++) % 3] = RadioPacket.Flags;
+					if (count == 3) {
+						count = 0;
+						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
+							{
+								Play();
+								delay();
+								PlayEnd();
+						}
+					}
+					break;
 		    }
+				
+				//PCON0 |= 0x01; // set IDLE bit
+				//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
 		}
 	}
 		
