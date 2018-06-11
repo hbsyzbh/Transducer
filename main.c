@@ -5,10 +5,10 @@
 unsigned char lightOn = 0;
 void LM4991(bool on)
 {
-	unsigned long delay = 3000000;
+	unsigned long delay = 1000000;
 	if (on){
 		P1_B4 = 1;
-		while(delay--);
+		//while(delay--);
 	}else{
 		P1_B4 = 0;
 	}
@@ -221,8 +221,8 @@ void Play()
 {
 	unsigned char i;
 	code unsigned char cmd[] = {0x7E, 0x03, 0xAA, 0xAD, 0xEF };
-	LM4991(1);
-	SetSoundLevel(15);
+	//LM4991(1);
+	//SetSoundLevel(15);
 	SCON0_TI = 0;
 	for(i = 0; i < sizeof(cmd); i++)
 	{
@@ -234,7 +234,7 @@ void Play()
 
 void delay()
 {
-	unsigned long delay = 500000;
+	unsigned long delay = 2000000;
 	while(delay--);
 }
 
@@ -269,7 +269,7 @@ void PlayEnd()
 				ret[1] = SBUF0;
 				SCON0_RI = 0;
 				if(ret[1] == 0x02) {
-					LM4991(0);
+					//LM4991(0);
 					break;
 				}
 			}
@@ -344,12 +344,10 @@ int main()
 	lightOn = 1;
 
 	P1_B3 = 1;
-	
 	selectTimer3Freq();
 	BoardInit();
 	
-	
-	//LM4991(1);
+	LM4991(1);
 	//SetSoundLevel(16);
 
 /*
@@ -404,8 +402,8 @@ int main()
 						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
 							{
 								Play();
-								delay();
-								PlayEnd();
+								//delay();
+								//PlayEnd();
 						}
 					}
 					break;
