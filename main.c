@@ -239,7 +239,7 @@ void delay()
 	while(delay--);
 }
 
-#if 0
+#if 1
 void qSoundlev()
 {
 	unsigned char i;
@@ -501,7 +501,7 @@ int main()
 	
 	LM4991(1);
 	//SetSoundLevel(16);
-	SBUF0 = 'a';
+	//SBUF0 = 'a';
 /*
 	P0_B7 = 1;	
 	setRTC(RTC0CN0, 0x80);
@@ -553,9 +553,9 @@ int main()
 						count = 0;
 						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
 							{
-								//qcmd(0x17);
-								//setSoundlev();
-								//qSoundlev();
+								qcmd(0x17);
+								setSoundlev();
+								qSoundlev();
 								Play2();
 								//Play();
 								//delay();
