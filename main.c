@@ -220,7 +220,8 @@ void SetSoundLevel(unsigned char level)
 void Play()
 {
 	unsigned char i;
-	code unsigned char cmd[] = {0x7E, 0x03, 0xAA, 0xAD, 0xEF };
+	//code unsigned char cmd[] = {0x7E, 0x03, 0xAA, 0xAD, 0xEF };
+	code unsigned char cmd[] = {0x7E, 0x02, 0x01, 0xEF };
 	//LM4991(1);
 	//SetSoundLevel(15);
 	SCON0_TI = 0;
@@ -238,10 +239,161 @@ void delay()
 	while(delay--);
 }
 
+#if 0
+void qSoundlev()
+{
+	unsigned char i;
+	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
+	code unsigned char cmd[] = {0x7E, 0x02, 0x11, 0xEF };
+	
+	unsigned char ret[10];
+
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+		
+		for(i = 0; i < 9;i++)
+		{
+			while(SCON0_RI == 0);
+			ret[i] = SBUF0;
+			SCON0_RI = 0;
+		}
+		break;
+		//
+		//PCON0 |= 0x01; // set IDLE bit
+		//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+		//delay();
+	}
+}
+
+void qcmd(char thecmd)
+{
+	unsigned char i;
+	unsigned char cmd[] = {0x7E, 0x02, 0, 0xEF };
+	
+	unsigned char ret[10];
+
+	cmd[2] = thecmd;
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+		
+		for(i = 0; i < 10;i++)
+		{
+			while(SCON0_RI == 0);
+			ret[i] = SBUF0;
+			SCON0_RI = 0;
+		}
+		break;
+		//
+		//PCON0 |= 0x01; // set IDLE bit
+		//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+		//delay();
+	}
+}
+
+void setSoundlev()
+{
+	unsigned char i;
+	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
+	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 0x10, 0xEF };
+	
+	unsigned char ret[10];
+
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+		
+		for(i = 0; i < 4;i++)
+		{
+			while(SCON0_RI == 0);
+			ret[i] = SBUF0;
+			SCON0_RI = 0;
+		}
+		break;
+		//
+		//PCON0 |= 0x01; // set IDLE bit
+		//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+		//delay();
+	}
+}
+#endif
+
+void Play2()
+{
+	unsigned char i;
+	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
+		code unsigned char cmd[] = {0x7E, 0x02, 0x03, 0xEF };
+	
+	unsigned char ret[10];
+
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+		
+		for(i = 0; i < 4;i++)
+		{
+			while(SCON0_RI == 0);
+			ret[i] = SBUF0;
+			SCON0_RI = 0;
+		}
+		break;
+		//
+		//PCON0 |= 0x01; // set IDLE bit
+		//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+		//delay();
+	}
+}
+
 void PlayEnd()
 {
 	unsigned char i;
 	code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
+	
 	unsigned char ret[10];
 
 	for(;;)
@@ -349,7 +501,7 @@ int main()
 	
 	LM4991(1);
 	//SetSoundLevel(16);
-
+	SBUF0 = 'a';
 /*
 	P0_B7 = 1;	
 	setRTC(RTC0CN0, 0x80);
@@ -401,7 +553,11 @@ int main()
 						count = 0;
 						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
 							{
-								Play();
+								//qcmd(0x17);
+								//setSoundlev();
+								//qSoundlev();
+								Play2();
+								//Play();
 								//delay();
 								//PlayEnd();
 						}
