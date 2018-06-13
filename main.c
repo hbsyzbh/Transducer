@@ -9,8 +9,10 @@ void LM4991(bool on)
 	if (on){
 		P1_B4 = 1;
 		//while(delay--);
+		P1_B5 = 1;
 	}else{
 		P1_B4 = 0;
+		P1_B5 = 0;
 	}
 }
 
@@ -57,11 +59,11 @@ void BoardInit()
 					| P0SKIP_B4__NOT_SKIPPED | P0SKIP_B5__NOT_SKIPPED
 					| P0SKIP_B6__SKIPPED     | P0SKIP_B7__SKIPPED;
 	
-	P1MDOUT = P1MDOUT_B0__PUSH_PULL | P1MDOUT_B1__PUSH_PULL | P1MDOUT_B3__PUSH_PULL |
+	P1MDOUT = P1MDOUT_B0__PUSH_PULL | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B3__PUSH_PULL |
 						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__PUSH_PULL | P1MDOUT_B5__PUSH_PULL;
 
 	P1SKIP =  P1SKIP_B0__SKIPPED 		 | P1SKIP_B1__SKIPPED 
-					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED | P1SKIP_B4__SKIPPED;
+					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED | P1SKIP_B4__SKIPPED | P1SKIP_B5__SKIPPED;
 	
 	//IE = IE_EA__ENABLED | IE_ES0__ENABLED;
 	IE = IE_EA__ENABLED;
@@ -239,6 +241,12 @@ void delay()
 	while(delay--);
 }
 
+void delay2()
+{
+	unsigned long delay = 95000;
+	while(delay--);
+}
+
 #if 1
 void qSoundlev()
 {
@@ -318,7 +326,7 @@ void setSoundlev()
 {
 	unsigned char i;
 	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
-	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 0x10, 0xEF };
+	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 24, 0xEF };
 	
 	unsigned char ret[10];
 
@@ -432,6 +440,13 @@ void PlayEnd()
 	}
 }
 
+void PlayEnd2()
+{
+	delay2();
+	while(P1_B1 == 0);
+	LM4991(0);
+}
+
 #define uart0RxBuffSize (32)
 unsigned short uart0RxIndex = 0;
 xdata unsigned char  uart0RxBuff[uart0RxBuffSize];
@@ -499,7 +514,7 @@ int main()
 	selectTimer3Freq();
 	BoardInit();
 	
-	LM4991(1);
+	//LM4991(1);
 	//SetSoundLevel(16);
 	//SBUF0 = 'a';
 /*
@@ -553,6 +568,8 @@ int main()
 						count = 0;
 						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
 							{
+								LM4991(1);
+								delay2();
 								qcmd(0x17);
 								setSoundlev();
 								qSoundlev();
@@ -560,6 +577,7 @@ int main()
 								//Play();
 								//delay();
 								//PlayEnd();
+								PlayEnd2();
 						}
 					}
 					break;
