@@ -148,8 +148,8 @@ void vRadio_SetChip()
     lTemp = bRadio_Check_Ezconfig(pEzConfigArray->Radio_Configuration_CRC);
 
     /* Check the return value */
-    if (lTemp == 1u) { LED4 = !LED4; }
-    if (lTemp == 2u) { LED3 = !LED3; }
+    //if (lTemp == 1u) { LED4 = !LED4; }
+    //if (lTemp == 2u) { LED3 = !LED3; }
   } while(lTemp != 0u);
 
   // Read ITs, clear pending ones,Returns the current interrupt status of ALL the possible interrupt events (both STATUS and PENDING) and optionally clears PENDING interrupts.

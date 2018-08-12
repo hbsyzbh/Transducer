@@ -1,7 +1,7 @@
 #include "si_efm8sb2_register_enums.h"
 #include "radio_config_Si4355.h"
 #include "bsp.h"
-
+char not_do = 1;
 unsigned char lightOn = 0;
 void LM4991(bool on)
 {
@@ -9,10 +9,14 @@ void LM4991(bool on)
 	if (on){
 		P1_B4 = 1;
 		//while(delay--);
-		P1_B5 = 1;
+		//P1_B5 = 1;
+		P1_B6 = 0;
+		P1_B3 = 0;
 	}else{
 		P1_B4 = 0;
-		P1_B5 = 0;
+		//P1_B5 = 0;
+		P1_B6 = 1;
+		P1_B3 = 1;
 	}
 }
 
@@ -60,12 +64,12 @@ void BoardInit()
 					| P0SKIP_B6__SKIPPED     | P0SKIP_B7__SKIPPED;
 	
 	P1MDOUT = P1MDOUT_B0__PUSH_PULL | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B3__PUSH_PULL |
-						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__PUSH_PULL | P1MDOUT_B5__PUSH_PULL;
+						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__OPEN_DRAIN;
 
 	P1SKIP =  P1SKIP_B0__SKIPPED 		 | P1SKIP_B1__SKIPPED 
 					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED | P1SKIP_B4__SKIPPED | P1SKIP_B5__SKIPPED;
 	
-	//IE = IE_EA__ENABLED | IE_ES0__ENABLED;
+	IE = IE_EA__ENABLED | IE_ES0__ENABLED;
 	IE = IE_EA__ENABLED;
 	EIE1 = EIE1_ET3__ENABLED;
 	TMR3CN0 = TMR3CN0_TR3__RUN | TMR3CN0_T3SPLIT__16_BIT_RELOAD;
@@ -103,10 +107,10 @@ void timer3() interrupt TIMER3_IRQn
 		if (division < 5) {
 			if(lightOn)
 			{
-				P1_B3 = 0;
+				P1_B2 = 0;
 			}
 		} else {
-			P1_B3 = 1;
+			P1_B2 = 1;
 		}
 
 	
@@ -326,7 +330,8 @@ void setSoundlev()
 {
 	unsigned char i;
 	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
-	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 24, 0xEF };
+	//code unsigned char cmd[] = {0x7E, 0x03, 0x31, 24, 0xEF };
+	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 22, 0xEF };
 	
 	unsigned char ret[10];
 
@@ -358,7 +363,39 @@ void setSoundlev()
 		//delay();
 	}
 }
+
 #endif
+void Q008Sleep()
+{
+	unsigned char i;
+	code unsigned char cmd[] = {0x7E, 0x03, 0x35, 0x03, 0xEF };
+	unsigned char ret[10];
+
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+		
+		for(i = 0; i < 4;i++)
+		{
+			while(SCON0_RI == 0);
+			ret[i] = SBUF0;
+			SCON0_RI = 0;
+		}
+		break;
+	}
+}
+
 
 void Play2()
 {
@@ -443,7 +480,7 @@ void PlayEnd()
 void PlayEnd2()
 {
 	delay2();
-	while(P1_B1 == 0);
+	while(P1_B5 == 0);
 	LM4991(0);
 }
 
@@ -503,6 +540,18 @@ unsigned char getRTC(unsigned char Addr)
 	return RTC0DAT;
 }
 
+void cpuSleep()
+{
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+	PMU0CF = PMU0CF_SLEEP__START;
+}
+
+void cpuStop()
+{
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+	PCON0 = PCON0_STOP__STOP;
+}
+
 int main()
 {
 	unsigned char Key[3];
@@ -513,8 +562,14 @@ int main()
 	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
-	
-	//LM4991(1);
+
+/*	
+	LM4991(1);
+	delay2();
+	Q008Sleep();
+	P1_B5 = 0;
+	P0_B7 = 1;
+*/
 	//SetSoundLevel(16);
 	//SBUF0 = 'a';
 /*
@@ -558,6 +613,9 @@ int main()
 		{
 			tRadioPacket RadioPacket;
 			si4455_get_int_status(0u, 0u, 0u);
+			
+			//P0_B7 = 1;
+			P0_B7 = 0;
 			 /* check the reason for the IT */
 		    if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
 		    {	/* Packet RX */
@@ -569,22 +627,38 @@ int main()
 						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
 							{
 								LM4991(1);
-								delay2();
-								qcmd(0x17);
-								setSoundlev();
-								qSoundlev();
-								Play2();
-								//Play();
-								//delay();
-								//PlayEnd();
-								PlayEnd2();
+								P0MDOUT |= P0MDOUT_B4__PUSH_PULL;
+								if(not_do) {
+									delay2();
+								//	qcmd(0x17);
+									setSoundlev();
+									qSoundlev();
+									Play2();
+									//Play();
+									//delay();
+									//PlayEnd();
+									PlayEnd2();
+								}
 						}
 					}
 					break;
 		    }
-				
+
 				//PCON0 |= 0x01; // set IDLE bit
 				//PCON0 = PCON0; // ... followed by a 3-cycle dummy instruction
+				/*
+				#if 0
+				P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
+				P0MDOUT &= ~P0MDOUT_B5__PUSH_PULL;
+				P0MDOUT |= 0x0F;
+				P0 = 0xF0;
+				SPI0CN0 = SPI0CN0_SPIEN__DISABLED;
+				P1MDOUT &= 0xFE;
+				
+				cpuSleep();
+				#endif
+				*/
+				//cpuStop();
 		}
 	}
 		
