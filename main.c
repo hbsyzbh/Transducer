@@ -1,6 +1,8 @@
 #include "si_efm8sb2_register_enums.h"
 #include "radio_config_Si4355.h"
 #include "bsp.h"
+#include<absacc.h>
+static void CheckNeedSave(void);
 char not_do = 1;
 unsigned char lightOn = 0;
 unsigned char SoundLevel = 23;
@@ -70,7 +72,7 @@ void BoardInit()
 	P1SKIP =  P1SKIP_B0__SKIPPED 		 | P1SKIP_B1__SKIPPED 
 					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED | P1SKIP_B4__SKIPPED | P1SKIP_B5__SKIPPED;
 	
-	IE = IE_EA__ENABLED | IE_ES0__ENABLED;
+	//IE = IE_EA__ENABLED | IE_ES0__ENABLED;
 	IE = IE_EA__ENABLED;
 	EIE1 = EIE1_ET3__ENABLED;
 	TMR3CN0 = TMR3CN0_TR3__RUN | TMR3CN0_T3SPLIT__16_BIT_RELOAD;
@@ -715,6 +717,7 @@ static void PlayState()
 			case ps_play:
 			default:
 				StopPlay();
+				CheckNeedSave();
 				break;
 					
 		}
@@ -723,6 +726,7 @@ static void PlayState()
 	if (play_st == ps_play) {
 		if(P1_B5 == 1) {
 			LM4991(0);
+			CheckNeedSave();
 			play_st = ps_stop;
 		}	
 	}
@@ -768,8 +772,54 @@ static void doKey(void)
 	lastState = key;
 }
 
+
+#define SoundLevelInFlash 0xF000
+#define DefaultSoundLevel 23
+unsigned char getSoundLevelFromFlash(void)
+{
+	unsigned char raw = CBYTE[SoundLevelInFlash];
+	if ((raw > 31) || (raw < 15)) {
+		return DefaultSoundLevel;
+	} else {
+		return raw;
+	}
+}
+
+void saveSoundLevelToFlash(unsigned char lev)
+{
+	unsigned char saveIE = IE;
+	
+	IE = 0;
+	if ((lev > 31) || (lev < 15)) {
+		lev = DefaultSoundLevel;
+	}
+	
+	//earse
+	FLKEY = 0xA5;
+	FLKEY = 0xF1;
+	PSCTL = 0x3;
+	XBYTE[SoundLevelInFlash] = lev;
+	
+	//write
+	FLKEY = 0xA5;
+	FLKEY = 0xF1;
+	PSCTL = 0x1;
+	XBYTE[SoundLevelInFlash] = lev;	
+	PSCTL = 0x0;
+	IE = saveIE;
+}
+
+static void CheckNeedSave(void)
+{
+	unsigned char tmp = getSoundLevelFromFlash();
+	if (tmp != SoundLevel)
+		saveSoundLevelToFlash(SoundLevel);
+}
+
 int main()
 {
+//	saveSoundLevelToFlash(16);
+	SoundLevel = getSoundLevelFromFlash();
 	for(; ;)
 	{
 			mainState();
