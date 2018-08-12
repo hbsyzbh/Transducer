@@ -330,8 +330,8 @@ void setSoundlev()
 {
 	unsigned char i;
 	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
-	//code unsigned char cmd[] = {0x7E, 0x03, 0x31, 24, 0xEF };
 	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 22, 0xEF };
+	//code unsigned char cmd[] = {0x7E, 0x03, 0x31, 31, 0xEF };
 	
 	unsigned char ret[10];
 
@@ -433,6 +433,39 @@ void Play2()
 		//delay();
 	}
 }
+
+void StopPlay()
+{
+	unsigned char i;
+	code unsigned char cmd[] = {0x7E, 0x02, 0x0E, 0xEF };
+	
+	unsigned char ret[10];
+
+	for(;;)
+	{
+			SCON0_RI = 0;
+			i = SBUF0;
+			SCON0_RI = 0;
+		
+		
+			SCON0_TI = 0;
+			for(i = 0; i < sizeof(cmd); i++)
+			{
+				SBUF0 = cmd[i];
+				while( ! SCON0_TI);
+				SCON0_TI = 0;
+			}
+		
+		for(i = 0; i < 4;i++)
+		{
+			while(SCON0_RI == 0);
+			ret[i] = SBUF0;
+			SCON0_RI = 0;
+		}
+		break;
+	}
+}
+
 
 void PlayEnd()
 {
@@ -552,16 +585,156 @@ void cpuStop()
 	PCON0 = PCON0_STOP__STOP;
 }
 
-int main()
-{
-	unsigned char Key[3];
-	unsigned char count = 0;
 
+#if 1
+
+char PlayFlag = 0;
+typedef enum
+{
+	ms_init,
+	ms_startRF,
+	ms_waitRF,
+}	MAIN_STATE;
+
+MAIN_STATE state;
+
+static void doInit(void)
+{
 	lightOn = 1;
 
 	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
+	vRadio_Init();
+}
+
+static void doStartRF(void)
+{
+	Radio_StartRX(0u);
+	si4455_fifo_info(0x02);
+}
+
+static int doWaitRF(void)
+{
+	static unsigned char Key[3];
+	static unsigned char count = 0;
+	tRadioPacket RadioPacket;
+	
+
+	si4455_get_int_status(0u, 0u, 0u);
+			
+			 /* check the reason for the IT */
+	if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
+	{	/* Packet RX */
+		si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
+		lightOn = 3;
+		Key[(count++) % 3] = RadioPacket.Flags;
+		if (count == 3) {
+			count = 0;
+			if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
+				{
+						return 2;
+				}
+		}
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
+static void mainState(void)
+{
+	switch(state)
+	{
+		case ms_init:
+			doInit();
+			state++;
+			break;
+		
+		case ms_startRF:
+			doStartRF();
+			state++;
+			break;
+		
+		case ms_waitRF:
+			{
+				int ret = doWaitRF();
+				
+				if (ret)  {
+					state = ms_startRF;
+				}
+					
+				if (ret == 2)
+					PlayFlag = 1;
+			}
+			
+			break;
+		
+		default:
+			state = ms_init;
+			break;
+	}
+}
+
+typedef enum
+{
+	ps_stop,
+	ps_play,
+	ps_waitFor_end
+}	PLAY_STATE;
+
+PLAY_STATE play_st;
+
+static void PlayState()
+{
+	if(PlayFlag) {
+		PlayFlag = 0;
+		switch(play_st)
+		{
+			case ps_stop:
+				LM4991(1);
+				P0MDOUT |= P0MDOUT_B4__PUSH_PULL;
+				delay2();
+				//	qcmd(0x17);
+				setSoundlev();
+				qSoundlev();
+				Play2();
+				delay2();
+				play_st = ps_play;
+				break;
+			
+			case ps_play:
+			default:
+				StopPlay();
+				break;
+					
+		}
+	}
+	
+	if (play_st == ps_play) {
+		if(P1_B5 == 1) {
+			LM4991(0);
+			play_st = ps_stop;
+		}	
+	}
+}
+
+int main()
+{
+	for(; ;)
+	{
+			mainState();
+			PlayState();
+	}
+}
+
+#else
+int main()
+{
+	unsigned char Key[3];
+	unsigned char count = 0;
+
 
 /*	
 	LM4991(1);
@@ -597,8 +770,13 @@ int main()
 */
 	//Play();
 	
-	vRadio_Init();
+	
+	lightOn = 1;
 
+	P1_B3 = 1;
+	selectTimer3Freq();
+	BoardInit();
+	vRadio_Init();
  	
 //	power4355up();
 //	get_stats();
@@ -615,7 +793,7 @@ int main()
 			si4455_get_int_status(0u, 0u, 0u);
 			
 			//P0_B7 = 1;
-			P0_B7 = 0;
+			//P0_B7 = 0;//sdn Radio on
 			 /* check the reason for the IT */
 		    if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
 		    {	/* Packet RX */
@@ -663,3 +841,4 @@ int main()
 	}
 		
 }
+#endif
