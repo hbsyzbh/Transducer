@@ -3,6 +3,7 @@
 #include "bsp.h"
 char not_do = 1;
 unsigned char lightOn = 0;
+unsigned char SoundLevel = 23;
 void LM4991(bool on)
 {
 	unsigned long delay = 1000000;
@@ -63,7 +64,7 @@ void BoardInit()
 					| P0SKIP_B4__NOT_SKIPPED | P0SKIP_B5__NOT_SKIPPED
 					| P0SKIP_B6__SKIPPED     | P0SKIP_B7__SKIPPED;
 	
-	P1MDOUT = P1MDOUT_B0__PUSH_PULL | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B3__PUSH_PULL |
+	P1MDOUT = P1MDOUT_B0__OPEN_DRAIN | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B2__PUSH_PULL | P1MDOUT_B3__PUSH_PULL |
 						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__OPEN_DRAIN;
 
 	P1SKIP =  P1SKIP_B0__SKIPPED 		 | P1SKIP_B1__SKIPPED 
@@ -326,15 +327,16 @@ void qcmd(char thecmd)
 	}
 }
 
-void setSoundlev()
+void setSoundlev(void)
 {
 	unsigned char i;
 	//code unsigned char cmd[] = {0x7E, 0x03, 0xC2, 0xC5, 0xEF };
-	code unsigned char cmd[] = {0x7E, 0x03, 0x31, 22, 0xEF };
+	unsigned char cmd[] = {0x7E, 0x03, 0x31, 22, 0xEF };
 	//code unsigned char cmd[] = {0x7E, 0x03, 0x31, 31, 0xEF };
 	
 	unsigned char ret[10];
 
+	cmd[3] = SoundLevel;
 	for(;;)
 	{
 			SCON0_RI = 0;
@@ -720,12 +722,37 @@ static void PlayState()
 	}
 }
 
+static void ChangeSoundLevel(void)
+{
+		SoundLevel += 2;
+		if (SoundLevel > 31) {
+			SoundLevel = 15;
+		}
+		setSoundlev();
+}
+
+static void ReadKey(void)
+{
+	static char lastState = 0xFF;
+	
+	if (lastState != 0xFF) {
+		if ((P1_B0 == 0) && (lastState != 0 )) {
+				if( play_st == ps_play) {
+					ChangeSoundLevel();
+				}
+		}
+	}
+	
+	lastState = P1_B0;
+}
+
 int main()
 {
 	for(; ;)
 	{
 			mainState();
 			PlayState();
+			ReadKey();
 	}
 }
 
