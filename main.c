@@ -252,6 +252,12 @@ void delay2()
 	while(delay--);
 }
 
+void delayKey()
+{
+	unsigned long delay = 10000;
+	while(delay--);
+}
+
 #if 1
 void qSoundlev()
 {
@@ -731,19 +737,35 @@ static void ChangeSoundLevel(void)
 		setSoundlev();
 }
 
-static void ReadKey(void)
+char readKey(void)
+{
+	char key[2] = {0xFF,0xFF};
+
+	key[0] = P1_B0;
+	delayKey();
+	key[1] = P1_B0;
+	
+	if (key[0] == key[1]) {
+		return key[0];
+	}
+	
+	return 0xFF;
+}
+
+static void doKey(void)
 {
 	static char lastState = 0xFF;
+	char key = readKey();
 	
 	if (lastState != 0xFF) {
-		if ((P1_B0 == 0) && (lastState != 0 )) {
+		if ((key == 0) && (lastState != 0 )) {
 				if( play_st == ps_play) {
 					ChangeSoundLevel();
 				}
 		}
 	}
 	
-	lastState = P1_B0;
+	lastState = key;
 }
 
 int main()
@@ -752,7 +774,7 @@ int main()
 	{
 			mainState();
 			PlayState();
-			ReadKey();
+			doKey();
 	}
 }
 
