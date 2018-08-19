@@ -6,6 +6,7 @@ static void CheckNeedSave(void);
 char not_do = 1;
 unsigned char lightOn = 0;
 unsigned char SoundLevel = 23;
+unsigned char gTime = 0;
 void LM4991(bool on)
 {
 	unsigned long delay = 1000000;
@@ -118,6 +119,7 @@ void timer3() interrupt TIMER3_IRQn
 
 	
 	if(division == 0) {
+		gTime++;
 		if (lightOn) 
 			lightOn--;
 	}
@@ -699,6 +701,7 @@ typedef enum
 	ms_init,
 	ms_startRF,
 	ms_waitRF,
+	ms_EnterLowPower
 }	MAIN_STATE;
 
 MAIN_STATE state;
@@ -751,6 +754,8 @@ static int doWaitRF(void)
 
 static void mainState(void)
 {
+	static unsigned char timeToSleep = 0;
+	
 	switch(state)
 	{
 		case ms_init:
@@ -761,6 +766,7 @@ static void mainState(void)
 		case ms_startRF:
 			doStartRF();
 			state++;
+			timeToSleep = gTime + 10;
 			break;
 		
 		case ms_waitRF:
@@ -773,10 +779,23 @@ static void mainState(void)
 					
 				if (ret == 2)
 					PlayFlag = 1;
+				
+				if (gTime == timeToSleep) {
+						state = ms_EnterLowPower;
+				}
 			}
-			
 			break;
 		
+		case ms_EnterLowPower:
+				LM4991(0);
+				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
+				//P0_B7 = 1;
+				//P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
+				cpuSuspend(5);
+				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_RX);
+				state = ms_startRF;
+				break;
+				
 		default:
 			state = ms_init;
 			break;
@@ -821,13 +840,9 @@ static void PlayState()
 	//停止之后，关功放，保存音量
 	if (play_st == ps_play) {
 		if(P1_B5 == 1) {
-			LM4991(0);
-			//si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
-			//P0_B7 = 1;
-			//P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
 			CheckNeedSave();
-			cpuSuspend(2);
 			play_st = ps_stop;
+			state = ms_EnterLowPower;
 		}	
 	}
 }
