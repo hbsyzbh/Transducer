@@ -57,8 +57,8 @@ void BoardInit()
 	SPI0CN0 = SPI0CN0_NSSMD__3_WIRE | SPI0CN0_SPIEN__ENABLED;
 	
 	XBR0 = XBR0_URT0E__ENABLED | XBR0_SPI0E__ENABLED; // | XBR0_CP0E__ENABLED;
-	XBR1 = XBR1_PCA0ME__CEX0;
-	XBR2 = XBR2_XBARE__ENABLED;
+	//XBR1 = XBR1_PCA0ME__CEX0;
+	XBR2 = XBR2_XBARE__ENABLED | XBR2_WEAKPUD__PULL_UPS_DISABLED;
 	P0MDOUT = P0MDOUT_B0__PUSH_PULL | P0MDOUT_B1__OPEN_DRAIN | P0MDOUT_B2__PUSH_PULL | P0MDOUT_B3__PUSH_PULL |
 						P0MDOUT_B4__PUSH_PULL | P0MDOUT_B5__OPEN_DRAIN | P0MDOUT_B6__OPEN_DRAIN | P0MDOUT_B7__PUSH_PULL ;
 						
@@ -105,9 +105,10 @@ void timer3() interrupt TIMER3_IRQn
 {
 	static unsigned short count = 0;
 	unsigned short division = count++ % 200; 
+	if( count == 20000) count = 0;
+	
 	TMR3CN0 = TMR3CN0_TR3__RUN | TMR3CN0_T3SPLIT__16_BIT_RELOAD;
 	
-
 		if (division < 5) {
 			if(lightOn)
 			{
@@ -117,9 +118,9 @@ void timer3() interrupt TIMER3_IRQn
 			P1_B2 = 1;
 		}
 
-	
+	gTime++;
+		
 	if(division == 0) {
-		gTime++;
 		if (lightOn) 
 			lightOn--;
 	}
@@ -612,12 +613,12 @@ void SetRTCValue(unsigned long value)
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0SET__SET);
 }
 
-void cpuSuspend(unsigned char sec)
+void cpuSuspend()
 {
 	unsigned char old_clkset = CLKSEL;
 	
 	SetRTCValue(0);
-	SetRTCAlarm(32768 * sec);
+	SetRTCAlarm(1639);
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
 	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
 	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS| PMU0CF_RTCAWK__SET;
@@ -655,8 +656,6 @@ void InitRTC(void)
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED);
 	delayRTC();
 	setRTC(RTC0XCN0, RTC0XCN0_XMODE__CRYSTAL | RTC0XCN0_AGCEN__ENABLED);
-	
-
 
 	if( ! not_do)
 	{		
@@ -706,6 +705,15 @@ typedef enum
 
 MAIN_STATE state;
 
+typedef enum
+{
+	ps_stop,
+	ps_play,
+	ps_waitFor_end
+}	PLAY_STATE;
+
+PLAY_STATE play_st;
+
 static void doInit(void)
 {
 	lightOn = 1;
@@ -723,20 +731,45 @@ static void doStartRF(void)
 	si4455_fifo_info(0x02);
 }
 
+#if 1
+static int doWaitRF(void)
+{
+	tRadioPacket RadioPacket;
+	
+	si4455_get_int_status(0u, 0u, 0u);
+		
+	/* check the reason for the IT */
+	if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
+	{	/* Packet RX */
+		si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
+		lightOn = 1;
+		gTime = 0;
+	
+		if( RadioPacket.Flags == 'D' ) {
+				return 2;
+		}
+		
+		return 1;
+	}
+	
+	return 0;
+}
+#else	
 static int doWaitRF(void)
 {
 	static unsigned char Key[3];
 	static unsigned char count = 0;
 	tRadioPacket RadioPacket;
 	
-
 	si4455_get_int_status(0u, 0u, 0u);
-			
+		
 			 /* check the reason for the IT */
 	if (Si4455Cmd.GET_INT_STATUS.PH_PEND & SI4455_CMD_GET_INT_STATUS_REP_PACKET_RX_PEND_BIT)
 	{	/* Packet RX */
 		si4455_read_rx_fifo(sizeof(tRadioPacket), (U8 *) &RadioPacket);
 		lightOn = 3;
+		gTime = 0;
+	
 		Key[(count++) % 3] = RadioPacket.Flags;
 		if (count == 3) {
 			count = 0;
@@ -751,11 +784,11 @@ static int doWaitRF(void)
 	
 	return 0;
 }
+#endif
+
 
 static void mainState(void)
 {
-	static unsigned char timeToSleep = 0;
-	
 	switch(state)
 	{
 		case ms_init:
@@ -766,7 +799,7 @@ static void mainState(void)
 		case ms_startRF:
 			doStartRF();
 			state++;
-			timeToSleep = gTime + 10;
+			gTime = 0;
 			break;
 		
 		case ms_waitRF:
@@ -777,11 +810,35 @@ static void mainState(void)
 					state = ms_startRF;
 				}
 					
+#if 0					
+	LM4991(0);
+	
+				
+	si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
+	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
+	P0_B7 = 1;
+/*	//XBR2 = 0;
+	P0MDOUT = 0;			
+	P0SKIP =  0xFF;
+	P0 = 0;
+	P1MDOUT = 0;
+	P1SKIP =	0xFF;			
+	P1 = 0;
+	P1_B2 = 1;
+*/
+				
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS;
+#endif				
 				if (ret == 2)
 					PlayFlag = 1;
 				
-				if (gTime == timeToSleep) {
-						state = ms_EnterLowPower;
+				if (play_st == ps_play) {
+					gTime = 0;
+				} else {
+					if (gTime >= 20) {
+							state = ms_EnterLowPower;
+					}
 				}
 			}
 			break;
@@ -789,9 +846,8 @@ static void mainState(void)
 		case ms_EnterLowPower:
 				LM4991(0);
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
-				//P0_B7 = 1;
 				//P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
-				cpuSuspend(5);
+				cpuSuspend();
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_RX);
 				state = ms_startRF;
 				break;
@@ -801,15 +857,6 @@ static void mainState(void)
 			break;
 	}
 }
-
-typedef enum
-{
-	ps_stop,
-	ps_play,
-	ps_waitFor_end
-}	PLAY_STATE;
-
-PLAY_STATE play_st;
 
 static void PlayState()
 {
@@ -832,6 +879,7 @@ static void PlayState()
 			case ps_play:
 			default:
 				StopPlay();		//ÊÖ¶¯Í£Ö¹
+				delay2();
 				break;
 					
 		}
