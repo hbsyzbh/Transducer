@@ -74,7 +74,7 @@ void BoardInit()
 	
 	//IE = IE_EA__ENABLED | IE_ES0__ENABLED;
 	IE = IE_EA__ENABLED;
-	EIE1 = EIE1_ET3__ENABLED;
+	EIE1 = EIE1_ET3__ENABLED;// | EIE1_ERTC0A__ENABLED;
 	TMR3CN0 = TMR3CN0_TR3__RUN | TMR3CN0_T3SPLIT__16_BIT_RELOAD;
 	
 	//PCA0PWM = PCA0PWM_CLSEL__8_BITS | PCA0PWM_ARSEL__AUTORELOAD;
@@ -257,6 +257,12 @@ void delay2()
 void delayKey()
 {
 	unsigned long delay = 10000;
+	while(delay--);
+}
+
+void delayRTC()
+{
+	unsigned long delay = 2000;
 	while(delay--);
 }
 
@@ -567,6 +573,7 @@ void setRTC(unsigned char Addr, unsigned char value)
 		RTC0KEY = RTC0KEY_RTC0ST__KEY2;
 	}
 	
+	while(RTC0ADR & RTC0ADR_BUSY__SET);
 	RTC0ADR = Addr;
 	RTC0DAT = value;
 }
@@ -580,21 +587,109 @@ unsigned char getRTC(unsigned char Addr)
 	}
 	
 	RTC0ADR = Addr;
+	RTC0ADR |= RTC0ADR_BUSY__SET;
+	while(RTC0ADR & RTC0ADR_BUSY__SET);
 	return RTC0DAT;
 }
 
-void cpuSleep()
+void SetRTCAlarm(unsigned long value)
 {
-	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
-	PMU0CF = PMU0CF_SLEEP__START;
+	setRTC(ALARM3, (value >> 24) & 0xFF);
+	setRTC(ALARM2, (value >> 16) & 0xFF);
+	setRTC(ALARM1, (value >> 8) & 0xFF);
+	setRTC(ALARM0, value & 0xFF);
 }
 
-void cpuStop()
+void SetRTCValue(unsigned long value)
 {
-	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
-	PCON0 = PCON0_STOP__STOP;
+	setRTC(CAPTURE3, (value >> 24) & 0xFF);
+	setRTC(CAPTURE2, (value >> 16) & 0xFF);
+	setRTC(CAPTURE1, (value >> 8) & 0xFF);
+	setRTC(CAPTURE0, value & 0xFF);
+	
+	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0SET__SET);
 }
 
+void cpuSuspend(unsigned char sec)
+{
+	unsigned char old_clkset = CLKSEL;
+	
+	SetRTCValue(0);
+	SetRTCAlarm(32768 * sec);
+	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS| PMU0CF_RTCAWK__SET;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	CLKSEL = old_clkset;
+}
+
+void RTC0_Alrm(void) interrupt RTC0ALARM_IRQn
+{
+	
+}
+
+/*
+1. If XTAL3 and XTAL4 are shared with standard GPIO functionality, set these pins to analog mode. If they XTAL3 and XTAL4 are
+dedicated pins, skip this step.
+2. Set RTC to crystal mode (XMODE = 1).
+3. Disable automatic gain control (AGCEN) and enable bias doubling (BIASX2) for fast crystal startup.
+4. Set the desired loading capacitance (RTC0XCF).
+5. Enable power to the RTC oscillator circuit (RTC0EN = 1).
+6. Wait 20 ms.
+7. Poll the RTC clock valid flag (CLKVLD) until the crystal oscillator stabilizes.
+8. Poll the RTC load capacitance ready flag (LOADRDY) until the load capacitance reaches its programmed value.
+9. Enable automatic gain control (AGCEN) and disable bias doubling (BIASX2) for maximum power savings.
+10. Enable the RTC missing clock detector.
+11. Wait 2 ms.
+12. Clear the PMU0CF wake-up source flags.
+*/
+void InitRTC(void)
+{
+		unsigned long alrm;
+	setRTC(RTC0XCN0, RTC0XCN0_XMODE__CRYSTAL | RTC0XCN0_BIASX2__ENABLED);
+	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED);
+	delayRTC();
+	setRTC(RTC0XCN0, RTC0XCN0_XMODE__CRYSTAL | RTC0XCN0_AGCEN__ENABLED);
+	
+
+
+	if( ! not_do)
+	{		
+		unsigned char cn0;
+
+		SetRTCValue(0);
+		SetRTCAlarm(32768 * 2);
+		alrm = (unsigned long)getRTC(ALARM0);
+		alrm += (unsigned long)getRTC(ALARM1) * 256;
+		alrm += (unsigned long)getRTC(ALARM2) * 256  * 256;
+		alrm += (unsigned long)getRTC(ALARM3) * 256  * 256  * 256;	
+		setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
+		while (cn0 = getRTC(RTC0CN0)) {
+			unsigned long rtc;
+			setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED | RTC0CN0_RTC0CAP__SET);
+			while(1) {
+			cn0 = getRTC(RTC0CN0);
+			if ((cn0 & RTC0CN0_RTC0CAP__SET) != RTC0CN0_RTC0CAP__SET)
+				break;
+			}
+
+			rtc = (unsigned long)getRTC(CAPTURE0);
+			rtc += (unsigned long)getRTC(CAPTURE1) * 256;
+			rtc += (unsigned long)getRTC(CAPTURE2) * 256  * 256;
+			rtc += (unsigned long)getRTC(CAPTURE3) * 256  * 256  * 256;
+
+			alrm = (unsigned long)getRTC(ALARM0);
+			alrm += (unsigned long)getRTC(ALARM1) * 256;
+			alrm += (unsigned long)getRTC(ALARM2) * 256  * 256;
+			alrm += (unsigned long)getRTC(ALARM3) * 256  * 256  * 256;
+			//cpuSuspend();
+		}
+	}
+
+}
 
 #if 1
 
@@ -615,6 +710,7 @@ static void doInit(void)
 	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
+	InitRTC();
 	vRadio_Init();
 }
 
@@ -716,17 +812,21 @@ static void PlayState()
 			
 			case ps_play:
 			default:
-				StopPlay();
-				CheckNeedSave();
+				StopPlay();		//手动停止
 				break;
 					
 		}
 	}
 	
+	//停止之后，关功放，保存音量
 	if (play_st == ps_play) {
 		if(P1_B5 == 1) {
 			LM4991(0);
+			//si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
+			//P0_B7 = 1;
+			//P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
 			CheckNeedSave();
+			cpuSuspend(2);
 			play_st = ps_stop;
 		}	
 	}
@@ -816,15 +916,16 @@ static void CheckNeedSave(void)
 		saveSoundLevelToFlash(SoundLevel);
 }
 
+//	saveSoundLevelToFlash(16);
 int main()
 {
-//	saveSoundLevelToFlash(16);
 	SoundLevel = getSoundLevelFromFlash();
-	for(; ;)
+
+	for(; ; )
 	{
-			mainState();
-			PlayState();
-			doKey();
+		mainState();
+		PlayState();
+		doKey();
 	}
 }
 
