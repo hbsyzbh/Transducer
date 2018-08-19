@@ -3,6 +3,7 @@
 #include "bsp.h"
 #include<absacc.h>
 static void CheckNeedSave(void);
+unsigned char getSoundLevelFromFlash(void);
 char not_do = 1;
 unsigned char lightOn = 0;
 unsigned char SoundLevel = 23;
@@ -621,7 +622,7 @@ void cpuSuspend()
 	SetRTCAlarm(1639);
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
 	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
-	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS| PMU0CF_RTCAWK__SET;
+	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS | PMU0CF_RTCAWK__SET;
 	_nop_();
 	_nop_();
 	_nop_();
@@ -869,9 +870,11 @@ static void PlayState()
 				P0MDOUT |= P0MDOUT_B4__PUSH_PULL;
 				delay2();
 				//	qcmd(0x17);
+				SoundLevel = getSoundLevelFromFlash();
 				setSoundlev();
 				qSoundlev();
 				Play2();
+				setSoundlev();
 				delay2();
 				play_st = ps_play;
 				break;
