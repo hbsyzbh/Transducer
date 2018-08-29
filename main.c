@@ -68,8 +68,8 @@ void BoardInit()
 					| P0SKIP_B4__NOT_SKIPPED | P0SKIP_B5__NOT_SKIPPED
 					| P0SKIP_B6__SKIPPED     | P0SKIP_B7__SKIPPED;
 	
-	P1MDOUT = P1MDOUT_B0__OPEN_DRAIN | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B2__PUSH_PULL | P1MDOUT_B3__PUSH_PULL |
-						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__OPEN_DRAIN;
+	P1MDOUT = P1MDOUT_B0__OPEN_DRAIN | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B2__PUSH_PULL | P1MDOUT_B3__OPEN_DRAIN |
+						P1MDOUT_B4__PUSH_PULL | P1MDOUT_B5__OPEN_DRAIN | P1MDOUT_B5__OPEN_DRAIN;
 
 	P1SKIP =  P1SKIP_B0__SKIPPED 		 | P1SKIP_B1__SKIPPED 
 					| P1SKIP_B2__SKIPPED		 | P1SKIP_B3__SKIPPED | P1SKIP_B4__SKIPPED | P1SKIP_B5__SKIPPED;
@@ -614,13 +614,16 @@ void SetRTCValue(unsigned long value)
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0SET__SET);
 }
 
+/*
 void cpuSuspend()
 {
 	unsigned char old_clkset = CLKSEL;
 	
 	SetRTCValue(0);
-	SetRTCAlarm(1639);
+	SetRTCAlarm(6553);
+	//SetRTCAlarm(32768 * 3);
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
+	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
 	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
 	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS | PMU0CF_RTCAWK__SET;
 	_nop_();
@@ -628,7 +631,29 @@ void cpuSuspend()
 	_nop_();
 	_nop_();
 	CLKSEL = old_clkset;
+	XBR2 = XBR2_XBARE__ENABLED | XBR2_WEAKPUD__PULL_UPS_DISABLED;
 }
+*/
+
+void cpuSleep()
+{
+	unsigned char old_clkset = CLKSEL;
+	
+	SetRTCValue(0);
+	SetRTCAlarm(6553);
+	//SetRTCAlarm(32768 * 3);
+	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
+	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+	PMU0CF = PMU0CF_SLEEP__START | PMU0CF_CLEAR__ALL_FLAGS | PMU0CF_RTCAWK__SET;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	CLKSEL = old_clkset;
+	XBR2 = XBR2_XBARE__ENABLED | XBR2_WEAKPUD__PULL_UPS_DISABLED;
+}
+
 
 void RTC0_Alrm(void) interrupt RTC0ALARM_IRQn
 {
@@ -723,6 +748,28 @@ static void doInit(void)
 	selectTimer3Freq();
 	BoardInit();
 	InitRTC();
+	
+#if 0	
+	while (not_do) {
+		cpuSleep();
+	}
+  SetRTCValue(0);
+	//SetRTCAlarm(6553);
+	SetRTCAlarm(32768 * 10);
+	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+
+	while (not_do) {
+	PMU0CF = PMU0CF_SLEEP__START | PMU0CF_CLEAR__ALL_FLAGS | PMU0CF_RTCAWK__SET;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+		
+		CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__LPOSC;
+		delay2();
+	}
+#endif	
 	vRadio_Init();
 }
 
@@ -811,14 +858,15 @@ static void mainState(void)
 					state = ms_startRF;
 				}
 					
-#if 0					
+#if 0				
 	LM4991(0);
 	
 				
 	si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
-	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
+	/*	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
+			
 	P0_B7 = 1;
-/*	//XBR2 = 0;
+	//XBR2 = 0;
 	P0MDOUT = 0;			
 	P0SKIP =  0xFF;
 	P0 = 0;
@@ -826,8 +874,8 @@ static void mainState(void)
 	P1SKIP =	0xFF;			
 	P1 = 0;
 	P1_B2 = 1;
-*/
-				
+				*/
+	P1 = 4;
 	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
 	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS;
 #endif				
@@ -848,7 +896,7 @@ static void mainState(void)
 				LM4991(0);
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
 				//P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
-				cpuSuspend();
+				cpuSleep();
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_RX);
 				state = ms_startRF;
 				break;
