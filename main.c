@@ -105,7 +105,7 @@ void selectTimer3Freq(void)
 void timer3() interrupt TIMER3_IRQn
 {
 	static unsigned short count = 0;
-	unsigned short division = count++ % 200; 
+	unsigned short division = count++ % 100; 
 	if( count == 20000) count = 0;
 	
 	TMR3CN0 = TMR3CN0_TR3__RUN | TMR3CN0_T3SPLIT__16_BIT_RELOAD;
@@ -122,7 +122,7 @@ void timer3() interrupt TIMER3_IRQn
 	gTime++;
 		
 	if(division == 0) {
-		if (lightOn) 
+		if (lightOn)
 			lightOn--;
 	}
 }
@@ -640,7 +640,7 @@ void cpuSleep()
 	unsigned char old_clkset = CLKSEL;
 	
 	SetRTCValue(0);
-	SetRTCAlarm(6553);
+	SetRTCAlarm(15400); //470ms
 	//SetRTCAlarm(32768 * 3);
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
 	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
@@ -857,35 +857,14 @@ static void mainState(void)
 				if (ret)  {
 					state = ms_startRF;
 				}
-					
-#if 0				
-	LM4991(0);
-	
-				
-	si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
-	/*	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
 			
-	P0_B7 = 1;
-	//XBR2 = 0;
-	P0MDOUT = 0;			
-	P0SKIP =  0xFF;
-	P0 = 0;
-	P1MDOUT = 0;
-	P1SKIP =	0xFF;			
-	P1 = 0;
-	P1_B2 = 1;
-				*/
-	P1 = 4;
-	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
-	PMU0CF = PMU0CF_SUSPEND__START | PMU0CF_CLEAR__ALL_FLAGS;
-#endif				
 				if (ret == 2)
 					PlayFlag = 1;
 				
 				if (play_st == ps_play) {
 					gTime = 0;
 				} else {
-					if (gTime >= 20) {
+					if (gTime >= 3) {  //30ms
 							state = ms_EnterLowPower;
 					}
 				}
