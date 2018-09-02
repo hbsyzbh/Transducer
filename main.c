@@ -3,7 +3,7 @@
 #include "bsp.h"
 #include <absacc.h>
 
-#define NO_SLEEP 1
+//#define NO_SLEEP 1
 
 static void CheckNeedSave(void);
 unsigned char getSoundLevelFromFlash(void);
@@ -11,6 +11,24 @@ char not_do = 1;
 unsigned char lightOn = 0;
 unsigned char SoundLevel = 23;
 unsigned char gTime = 0;
+
+void SPI_Uart_Port(bool on)
+{
+	if(on) {
+		P0MDOUT = P0MDOUT_B0__PUSH_PULL  | P0MDOUT_B1__OPEN_DRAIN | P0MDOUT_B2__PUSH_PULL  | P0MDOUT_B3__PUSH_PULL |
+							P0MDOUT_B4__PUSH_PULL  | P0MDOUT_B5__OPEN_DRAIN | P0MDOUT_B6__OPEN_DRAIN | P0MDOUT_B7__PUSH_PULL ;
+		
+		P1MDOUT = P1MDOUT_B0__OPEN_DRAIN | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B2__PUSH_PULL  | P1MDOUT_B3__OPEN_DRAIN |
+							P1MDOUT_B4__PUSH_PULL  | P1MDOUT_B5__OPEN_DRAIN | P1MDOUT_B6__OPEN_DRAIN;
+	} else {
+		P0MDOUT = P0MDOUT_B0__OPEN_DRAIN | P0MDOUT_B1__OPEN_DRAIN | P0MDOUT_B2__OPEN_DRAIN | P0MDOUT_B3__OPEN_DRAIN |
+						  P0MDOUT_B4__OPEN_DRAIN | P0MDOUT_B5__OPEN_DRAIN | P0MDOUT_B6__OPEN_DRAIN | P0MDOUT_B7__PUSH_PULL ;
+
+		P1MDOUT = P1MDOUT_B0__OPEN_DRAIN | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B2__PUSH_PULL  | P1MDOUT_B3__OPEN_DRAIN |
+						  P1MDOUT_B4__OPEN_DRAIN | P1MDOUT_B5__OPEN_DRAIN | P1MDOUT_B6__OPEN_DRAIN;
+	}
+}
+
 void LM4991(bool on)
 {
 	unsigned long delay = 1000000;
@@ -20,13 +38,11 @@ void LM4991(bool on)
 		//P1_B5 = 1;
 		P1_B6 = 0;
 		P1_B3 = 0;
-		P0MDOUT |= P0MDOUT_B4__PUSH_PULL;
 	}else{
 		P1_B4 = 0;
 		//P1_B5 = 0;
 		P1_B6 = 1;
 		P1_B3 = 1;
-		P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
 	}
 }
 
@@ -640,6 +656,24 @@ void cpuSuspend()
 }
 */
 
+#if 0
+void cpuSleep()  //²»ÐÑ ÁÙÊ±µ÷ÊÔ
+{
+	unsigned char old_clkset = CLKSEL;
+	//BoardInit();
+	SetRTCValue(0);
+	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN);
+	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
+	CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__RTC;
+	PMU0CF = PMU0CF_SLEEP__START | PMU0CF_CLEAR__ALL_FLAGS;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	CLKSEL = old_clkset;
+	XBR2 = XBR2_XBARE__ENABLED | XBR2_WEAKPUD__PULL_UPS_DISABLED;
+}
+#else
 void cpuSleep()
 {
 	unsigned char old_clkset = CLKSEL;
@@ -659,7 +693,7 @@ void cpuSleep()
 	CLKSEL = old_clkset;
 	XBR2 = XBR2_XBARE__ENABLED | XBR2_WEAKPUD__PULL_UPS_DISABLED;
 }
-
+#endif
 
 void RTC0_Alrm(void) interrupt RTC0ALARM_IRQn
 {
@@ -753,14 +787,24 @@ static void doInit(void)
 	P1_B3 = 1;
 	selectTimer3Freq();
 	BoardInit();
-	InitRTC();
-	
+	InitRTC();	
+	vRadio_Init();
 #if 0	
 	while (! not_do) {
 		cpuSleep();
 	}
 	P1_B2 = 1;
-	P0_B7 = 1;
+	//P0_B7 = 1;
+	
+	LM4991(0);
+  si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
+	
+	P0MDOUT = P0MDOUT_B0__OPEN_DRAIN | P0MDOUT_B1__OPEN_DRAIN | P0MDOUT_B2__OPEN_DRAIN | P0MDOUT_B3__OPEN_DRAIN |
+						P0MDOUT_B4__OPEN_DRAIN | P0MDOUT_B5__OPEN_DRAIN | P0MDOUT_B6__OPEN_DRAIN | P0MDOUT_B7__PUSH_PULL ;
+
+	P1MDOUT = P1MDOUT_B0__OPEN_DRAIN | P1MDOUT_B1__OPEN_DRAIN | P1MDOUT_B2__PUSH_PULL | P1MDOUT_B3__OPEN_DRAIN |
+						P1MDOUT_B4__OPEN_DRAIN | P1MDOUT_B5__OPEN_DRAIN | P1MDOUT_B6__OPEN_DRAIN;
+	
   SetRTCValue(0);
 	//SetRTCAlarm(6553);
 	SetRTCAlarm(32768 * 5);
@@ -777,8 +821,7 @@ static void doInit(void)
 		CLKSEL = CLKSEL_CLKDIV__SYSCLK_DIV_1 | CLKSEL_CLKSL__LPOSC;
 		delay2();
 	}
-#endif	
-	vRadio_Init();
+#endif
 }
 
 static void doStartRF(void)
@@ -873,7 +916,7 @@ static void mainState(void)
 				if (play_st == ps_play) {
 					gTime = 0;
 				} else {
-					if (gTime >= 10) {  //100ms
+					if (gTime >= 100) {  //100ms
 							state = ms_EnterLowPower;
 					}
 				}
@@ -886,7 +929,9 @@ static void mainState(void)
 				LM4991(0);
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_SLEEP);
 				//P0MDOUT &= ~P0MDOUT_B4__PUSH_PULL;
+				SPI_Uart_Port(0);
 				cpuSleep();
+				SPI_Uart_Port(1);
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_RX);
 				state = ms_startRF;
 				break;
@@ -1109,7 +1154,6 @@ int main()
 						if(( Key[0] == 'D') && (Key[1] == 'D') && (Key[2] == 'D'))
 							{
 								LM4991(1);
-								P0MDOUT |= P0MDOUT_B4__PUSH_PULL;
 								if(not_do) {
 									delay2();
 								//	qcmd(0x17);
