@@ -475,6 +475,7 @@ void Play2()
 	}
 }
 
+#if 0
 void StopPlay()
 {
 	unsigned char i;
@@ -506,7 +507,7 @@ void StopPlay()
 		break;
 	}
 }
-
+#endif
 
 void PlayEnd()
 {
@@ -661,7 +662,7 @@ void cpuSleep()
 	unsigned char old_clkset = CLKSEL;
 	
 	SetRTCValue(0);
-	SetRTCAlarm(29491); //900ms
+	SetRTCAlarm(9834); //300ms
 	//SetRTCAlarm(15400); //470ms
 	//SetRTCAlarm(32768 * 3);
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
@@ -746,7 +747,8 @@ typedef enum
 	ms_init,
 	ms_startRF,
 	ms_waitRF,
-	ms_EnterLowPower
+	ms_EnterLowPower,
+	ms_Played
 }	MAIN_STATE;
 
 MAIN_STATE state;
@@ -856,14 +858,16 @@ static void mainState(void)
 					state = ms_startRF;
 				}
 			
-				if (ret == 2)
+				if (ret == 2) {
 					PlayFlag = 1;
+					state = ms_Played;
+				}
 				
 #ifndef NO_SLEEP
 				if (play_st == ps_play) {
 					gTime = 0;
 				} else {
-					if (gTime >= 100) {  //100ms
+					if (gTime > 11) {  //100ms
 							state = ms_EnterLowPower;
 					}
 				}
@@ -882,6 +886,10 @@ static void mainState(void)
 				si4455_change_state(SI4455_CMD_REQUEST_DEVICE_STATE_REP_MAIN_STATE_ENUM_RX);
 				state = ms_startRF;
 				break;
+		
+		case ms_Played:
+				state = ms_startRF;
+				break;
 				
 		default:
 			state = ms_init;
@@ -896,6 +904,7 @@ static void PlayState()
 		switch(play_st)
 		{
 			case ps_stop:
+			case ps_play:
 				LM4991(1);
 				P0MDOUT |= P0MDOUT_B4__PUSH_PULL;
 				delay2();
@@ -906,24 +915,27 @@ static void PlayState()
 				Play2();
 				setSoundlev();
 				delay2();
-				play_st = ps_play;
+				play_st = ps_play; 
 				break;
-			
-			case ps_play:
+
 			default:
-				StopPlay();		//手动停止
-				delay2();
+				//StopPlay();		//手动停止
+				//delay2();
+			  //play_st = ps_stop;
 				break;
 					
 		}
 	}
 	
 	//停止之后，关功放，保存音量
-	if (play_st == ps_play) {
+	if (play_st == ps_play) 
+	{
 		if(P1_B5 == 1) {
 			CheckNeedSave();
 			play_st = ps_stop;
+#ifndef NO_SLEEP			
 			state = ms_EnterLowPower;
+#endif			
 		}	
 	}
 }
@@ -959,7 +971,8 @@ static void doKey(void)
 	
 	if (lastState != 0xFF) {
 		if ((key == 0) && (lastState != 0 )) {
-				if( play_st == ps_play) {
+				//if( play_st == ps_play) 
+				{
 					ChangeSoundLevel();
 				}
 		}
