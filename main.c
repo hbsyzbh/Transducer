@@ -1,7 +1,10 @@
 #include "si_efm8sb2_register_enums.h"
 #include "radio_config_Si4355.h"
 #include "bsp.h"
-#include<absacc.h>
+#include <absacc.h>
+
+#define NO_SLEEP 1
+
 static void CheckNeedSave(void);
 unsigned char getSoundLevelFromFlash(void);
 char not_do = 1;
@@ -60,8 +63,8 @@ void BoardInit()
 	XBR0 = XBR0_URT0E__ENABLED | XBR0_SPI0E__ENABLED; // | XBR0_CP0E__ENABLED;
 	//XBR1 = XBR1_PCA0ME__CEX0;
 	XBR2 = XBR2_XBARE__ENABLED | XBR2_WEAKPUD__PULL_UPS_DISABLED;
-	P0MDOUT = P0MDOUT_B0__PUSH_PULL | P0MDOUT_B1__OPEN_DRAIN | P0MDOUT_B2__PUSH_PULL | P0MDOUT_B3__PUSH_PULL |
-						P0MDOUT_B4__PUSH_PULL | P0MDOUT_B5__OPEN_DRAIN | P0MDOUT_B6__OPEN_DRAIN | P0MDOUT_B7__PUSH_PULL ;
+	P0MDOUT = P0MDOUT_B0__OPEN_DRAIN | P0MDOUT_B1__OPEN_DRAIN | P0MDOUT_B2__OPEN_DRAIN | P0MDOUT_B3__OPEN_DRAIN |
+						P0MDOUT_B4__OPEN_DRAIN | P0MDOUT_B5__OPEN_DRAIN | P0MDOUT_B6__OPEN_DRAIN | P0MDOUT_B7__PUSH_PULL ;
 						
 	P0SKIP =  P0SKIP_B0__NOT_SKIPPED | P0SKIP_B1__NOT_SKIPPED
 					| P0SKIP_B2__NOT_SKIPPED | P0SKIP_B3__SKIPPED
@@ -640,7 +643,8 @@ void cpuSleep()
 	unsigned char old_clkset = CLKSEL;
 	
 	SetRTCValue(0);
-	SetRTCAlarm(15400); //470ms
+	SetRTCAlarm(29491); //900ms
+	//SetRTCAlarm(15400); //470ms
 	//SetRTCAlarm(32768 * 3);
 	setRTC(RTC0CN0, RTC0CN0_RTC0EN__ENABLED | RTC0CN0_RTC0TR__RUN |RTC0CN0_ALRM__SET| RTC0CN0_RTC0AEN__ENABLED);
 	XBR2 = XBR2_WEAKPUD__PULL_UPS_DISABLED;
@@ -749,10 +753,12 @@ static void doInit(void)
 	BoardInit();
 	InitRTC();
 	
-#if 0	
-	while (not_do) {
+#if 1	
+	while (! not_do) {
 		cpuSleep();
 	}
+	P1_B2 = 1;
+	P0_B7 = 1;
   SetRTCValue(0);
 	//SetRTCAlarm(6553);
 	SetRTCAlarm(32768 * 10);
@@ -779,7 +785,7 @@ static void doStartRF(void)
 	si4455_fifo_info(0x02);
 }
 
-#if 1
+#ifndef NO_SLEEP
 static int doWaitRF(void)
 {
 	tRadioPacket RadioPacket;
@@ -861,13 +867,16 @@ static void mainState(void)
 				if (ret == 2)
 					PlayFlag = 1;
 				
+#ifndef NO_SLEEP
 				if (play_st == ps_play) {
 					gTime = 0;
 				} else {
-					if (gTime >= 3) {  //30ms
+					if (gTime >= 10) {  //100ms
 							state = ms_EnterLowPower;
 					}
 				}
+#endif		
+				
 			}
 			break;
 		
